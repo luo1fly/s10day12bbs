@@ -1,0 +1,135 @@
+{% extends 'index.html' %}
+
+
+{% block container %}
+
+    {% csrf_token %}
+<div>
+
+  <!-- Nav tabs -->
+  <ul class="nav nav-tabs" role="tablist">
+    <li role="presentation" class="active"><a href="#contact-box" aria-controls="home" role="tab" data-toggle="tab">联系人</a></li>
+    <li role="presentation"><a href="#contact-group-box" aria-controls="profile" role="tab" data-toggle="tab">群组</a></li>
+    <li role="presentation"><a href="#Config" aria-controls="messages" role="tab" data-toggle="tab">选项</a></li>
+  </ul>
+
+  <!-- Tab panes -->
+  <div class="tab-content">
+
+    <div role="tabpanel" class="tab-pane active" id="contact-box">
+        <div class="row chat-box">
+            <div class="contact-list col-md-3">
+                <div class="contact-list-content">
+                    <form class="navbar-form" method="get" action="/">
+                        <input type="text" class="form-control" name="s" id="s" style="width: 200px;">
+                        <button type="submit" class="btn btn-default">搜索</button>
+                    </form>
+                    <div id="list-group">
+                            {% for contact in request.user.userprofile.friends.select_related %}
+                                <a contact-id="{{ contact.id }}" contact-type="single" href="#" class="list-group-item" >
+                                    {{ contact.name }}
+                                </a>
+                            {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="dialog-box col-md-9">
+                <div class="dialog-box-header">
+
+                </div>
+                <div class="dialog-box-content">
+
+                </div>
+                <div class="dialog-box-utils">
+                    chat-box-utils
+                </div>
+                <div class="dialog-box-msg">
+                    <textarea name="msg"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div role="tabpanel" class="tab-pane" id="contact-group-box">群组</div>
+    <div role="tabpanel" class="tab-pane" id="Config">选项</div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block bottom-js %}
+    <script type="text/javascript">
+        $(document).ready(function () {
+            RefreshMsgs = setInterval(function () {
+                GetNewMsg();
+            },3000);
+
+            $("#list-group a").click(function () {
+                $(this).addClass("active");
+                $(this).siblings().removeClass("active");
+
+                SwitchChatBox(this);
+            });
+
+            $("body").delegate('textarea', 'keydown', function (e) {
+                if (e.which == 13) {
+                    var msg_txt = $('textarea').val();
+                    if ($.trim(msg_txt).length > 0) {
+                        console.log(msg_txt);
+                        SendMsg(msg_txt);
+                    };
+                    AddSendMsgIntoBox(msg_txt);
+                    $('textarea').val('');
+                }
+            })
+        });
+
+        function SwitchChatBox(ele) {
+            var current_uid = $(ele).attr("contact-id");
+            var current_contact_type = $(ele).attr('contact-type');
+            var current_contact_name = $(ele).text();
+            var dialog_head_html = '<span contact-id="'+current_uid+'" contact-type="'+current_contact_type+'">'+current_contact_name+'</span>';
+
+            $(".dialog-box-header").html(dialog_head_html)
+        };
+
+        function SendMsg(msg) {
+            var msg_dic = {
+                'from_id': {{ request.user.userprofile.id }},
+                'to_id': $(".dialog-box-header span").attr("contact-id"),
+                'contact_type': $(".dialog-box-header span").attr("contact-type"),
+                'msg': msg,
+            }
+            $.post("{% url 'chat_send_msg' %}", {'data': JSON.stringify(msg_dic), 'csrfmiddlewaretoken': $("input[name='csrfmiddlewaretoken']").attr('value')}, function(callback){
+                console.log(callback);
+            });
+        };
+
+        function GetNewMsg() {
+            var current_contact_id = $(".dialog-box-header span").attr('contact-id')
+            $.get("{% url 'get_new_msg' %}",
+                    {'user_id':{{ request.user.userprofile.id }} },
+                    function(callback){
+                        callback = JSON.parse(callback);
+                        console.log(callback)
+                        AddSendMsgIntoBox(callback);
+{#                        $(".dialog-box-content").html(callback)#}
+
+                    });
+        };
+
+        function AddSendMsgIntoBox(msg_txt) {
+            var msg_div = "<div class='pull right'>" +
+                            "<span>" + {{ request.user.userprofile.name }} + "</span>" +
+                            "<br>" +
+                            "<span>" + new Date().toLocaleDateString() + "</span>" +
+                            "<p>" + msg_txt + "</p>" +
+                            "</div>";
+            $(".dialog-box-content").append(msg_div);
+            $(".dialog-box-content").animate({
+                scrollTop: $(".dialog-box-content")[0].scrollHeight
+            },500);
+        };
+    </script>
+{% endblock %}
